@@ -4,6 +4,7 @@ import base64
 import math
 import sys
 import re
+import string
 
 # usage: Open Burp, navigate to proxy history, ctrl-a to select all records, right click and "Save Items" as an .xml file. 
 # python burplist.py burprequests.xml
@@ -27,6 +28,8 @@ matching_regexes = dict(path="/|\?|&|=",
                         raw_content="/|\?|&|=|_|-|\.|\+|:| |\n|\r|\t|\"|\Z|<|>|\{|\}|\[|\]|`|~|!|@|\#|\$|;|,|\(|\)|\*|\^|\\\\|\|")
 
 
+entropy_threshold = 4.2
+
 def calcEntropy(string):
     # "Calculates the Shannon entropy of a string"
     # get probability of chars in string
@@ -39,13 +42,20 @@ def calcEntropy(string):
 def isUsefulWord(word):
     if word.isnumeric():
         return None
+    if not isPrintable(word):
+        return None
     for regex in cleansing_regexes:
         if re.search(regex,word):
             return None
     entropy_value = calcEntropy(word)
-    if entropy_value <= 4.25:
+    if entropy_value <= entropy_threshold:
         return word
 
+def isPrintable(word):
+    for x in word:
+        if x not in string.printable:
+            return False
+    return True
 
 if __name__ == '__main__':
     burplog_infile = sys.argv[1]
@@ -61,13 +71,13 @@ if __name__ == '__main__':
 
         # base64 reqeust
         raw_wordlist |= set(re.split(matching_regexes['raw_content'],
-                             base64.b64decode(i[8].text).decode('ascii')))
+                             base64.b64decode(i[8].text).decode('ascii','ignore')))
 
         # base64 response
         if i[12].text is not None:
             raw_wordlist |= set(re.split(
                 matching_regexes['raw_content'],
-                base64.b64decode(i[12].text).decode('ascii')))
+                base64.b64decode(i[12].text).decode('ascii','ignore')))
 
 
     final_wordlist = set()
